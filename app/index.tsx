@@ -2,30 +2,42 @@ import { useEffect, useState } from "react"
 import { Button, Text, View, StyleSheet, TouchableOpacity, TextInput } from "react-native"
 import { Camera, useCameraDevice, useCameraPermission, useCodeScanner } from "react-native-vision-camera"
 import { AntDesign } from '@expo/vector-icons'
-import * as SQLite from 'expo-sqlite'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import { AppStorage } from "./storage"
+
+export interface Produto {
+  id: number
+  nome: string
+  codigo_sistema: string
+  codigo_barras: string
+}
+
+export interface Contagem extends Produto {
+  id: number
+  quantidade: number
+}
 
 export default function App() {
   const device = useCameraDevice('back')
   const { hasPermission, requestPermission } = useCameraPermission()
   const [scan, setScan] = useState(false)
-  const [lista, setLista] = useState<{
-    codigo: string
-    quantidade: number
-    produto: string
-    id: string
-  }[]>([])
+
+  const [produtos, setProdutos] = useState<Produto[]>([])
+  const [contagens, setContagens] = useState<Contagem[]>([])
   const [edit, setEdit] = useState({
     modal: false,
-    codigo: '',
+    id: '',
+    codigo_barras: '',
+    codigo_sistema: '',
     quantidade: 1,
-    produto: '',
+    nome: '',
   })
 
   const codeScanner = useCodeScanner({
     codeTypes: ['ean-13', 'ean-8'],
     onCodeScanned: (codes) => {
       setScan(false)
-      setEdit({ ...edit, codigo: codes[0].value || '', modal: true })
+      setEdit({ ...edit, codigo_barras: codes[0].value || '', modal: true })
     }
   })
 
@@ -39,9 +51,9 @@ export default function App() {
       <View style={{ backgroundColor: 'white', padding: 20 }}>
         <Text style={{ fontWeight: 'bold', color: 'cyan', marginBottom: 30 }}>NOVA CONTAGEM</Text>
         <Text style={{ marginBottom: 10, color: 'gray' }}>PRODUTO</Text>
-        <TextInput style={{ borderBottomWidth: 1, marginBottom: 20 }} value={edit.produto} />]
+        <TextInput style={{ borderBottomWidth: 1, marginBottom: 20 }} value={edit.nome} />]
         <Text style={{ marginBottom: 10, color: 'gray' }}>CÓDIGO DE BARRAS</Text>
-        <TextInput style={{ borderBottomWidth: 1, marginBottom: 20 }} value={edit.codigo} />
+        <TextInput style={{ borderBottomWidth: 1, marginBottom: 20 }} value={edit.codigo_barras} />
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
           <Text style={{ color: 'gray' }}>QUANTIDADE</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -54,16 +66,14 @@ export default function App() {
             </TouchableOpacity>
           </View>
         </View>
+        <Button title="SALVAR" />
       </View>
     </View>
   )
 
   const runDB = async () => {
-    const db = await SQLite.openDatabaseAsync('DATABASE1');
-    await db.execAsync(`
-      CREATE TABLE IF NOT EXISTS produto (id INTEGER PRIMARY KEY, nome TEXT, codigo_barras TEXT, codigo_sistema TEXT);
-      CREATE TABLE IF NOT EXISTS contagem (id INTEGER PRIMARY KEY, id_produto INTEGER, quantidade INTEGER, FOREIGN KEY (id_produto) REFERENCES produto (id));
-    `);
+    const produtos = AppStorage.listarProdutos()
+    const contagens = AppStorage.listarContagens()
   }
 
   useEffect(() => { runDB() }, [])
