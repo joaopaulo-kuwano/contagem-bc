@@ -27,7 +27,7 @@ export class AppStorage {
   static async listarContagens(): Promise<Contagem[]> {
     try {
       const jsonValue = await AsyncStorage.getItem('LISTA_CONTAGEM');
-      return jsonValue != null ? JSON.parse(jsonValue) : null;
+      return jsonValue != null ? JSON.parse(jsonValue) : [];
     } catch (err) {
       console.log(err)
       return []

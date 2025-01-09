@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { Button, Text, View, StyleSheet, TouchableOpacity, TextInput } from "react-native"
+import { Button, Text, View, StyleSheet, TouchableOpacity, TextInput, FlatList } from "react-native"
 import { Camera, useCameraDevice, useCameraPermission, useCodeScanner } from "react-native-vision-camera"
 import { AntDesign } from '@expo/vector-icons'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -26,7 +26,7 @@ export default function App() {
   const [contagens, setContagens] = useState<Contagem[]>([])
   const [edit, setEdit] = useState({
     modal: false,
-    id: '',
+    id: 0,
     codigo_barras: '',
     codigo_sistema: '',
     quantidade: 1,
@@ -46,15 +46,32 @@ export default function App() {
     setEdit({ ...edit, modal: false })
   }
 
+  const salvarEdicao = async () => {
+    if (edit.id < 1) {
+      const c = [...contagens, { ...edit, id: contagens.length + 1 }]
+      setContagens(c)
+      setEdit({ modal: false, id: 0, codigo_barras: '', codigo_sistema: '', quantidade: 1, nome: '' })
+      await AppStorage.storeData('LISTA_CONTAGEM', JSON.stringify(c))
+      return
+    }
+
+    const index = contagens.findIndex(e => e.id === edit.id)
+    const c = [...contagens]
+    c[index].quantidade += edit.quantidade
+    c[index].nome = edit.nome
+    await AppStorage.storeData('LISTA_CONTAGEM', JSON.stringify(c))
+    setContagens(c)
+  }
+
   const renderModalEdicao = () => (
     <View style={{ flex: 1, flexDirection: 'column', justifyContent: 'center', padding: 20 }}>
       <View style={{ backgroundColor: 'white', padding: 20 }}>
         <Text style={{ fontWeight: 'bold', color: 'cyan', marginBottom: 30 }}>NOVA CONTAGEM</Text>
         <Text style={{ marginBottom: 10, color: 'gray' }}>PRODUTO</Text>
-        <TextInput style={{ borderBottomWidth: 1, marginBottom: 20 }} value={edit.nome} />]
+        <TextInput style={{ borderBottomWidth: 1, marginBottom: 20 }} value={edit.nome} onChangeText={e => setEdit({ ...edit, nome: e })} />]
         <Text style={{ marginBottom: 10, color: 'gray' }}>CÓDIGO DE BARRAS</Text>
-        <TextInput style={{ borderBottomWidth: 1, marginBottom: 20 }} value={edit.codigo_barras} />
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+        <TextInput style={{ borderBottomWidth: 1, marginBottom: 20 }} value={edit.codigo_barras} onChangeText={e => setEdit({ ...edit, codigo_barras: e })} />
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 }}>
           <Text style={{ color: 'gray' }}>QUANTIDADE</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <TouchableOpacity style={styles.qtdButton} onPress={() => setEdit({ ...edit, quantidade: edit.quantidade - 1 })}>
@@ -66,14 +83,56 @@ export default function App() {
             </TouchableOpacity>
           </View>
         </View>
-        <Button title="SALVAR" />
+        <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+          <View style={{ width: '30%' }}>
+            <Button title="SALVAR" onPress={salvarEdicao} />
+          </View>
+        </View>
       </View>
     </View>
   )
 
+  const renderListas = () => (
+    <View>
+      <View>
+        
+      </View>
+      <FlatList
+        data={contagens}
+        keyExtractor={e => e.id.toString()}
+        renderItem={({ item }) => (
+          <View style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            borderBottomWidth: 1,
+            borderBottomColor: '#ccc',
+            marginBottom: 10,
+            padding: 10,
+          }}>
+            <View style={{ flexDirection: 'column' }}>
+              <Text>{item.codigo_barras}</Text>
+              <Text>{item.nome}</Text>
+            </View>
+            <Text>{item.quantidade}</Text>
+          </View>
+        )}
+      />
+    </View>
+  )
+
+  useEffect(() => {
+    if (!edit.codigo_barras) return
+    const search = produtos.filter(e => e.codigo_barras === edit.codigo_barras)
+    if (search.length) setEdit({
+      ...edit,
+      nome: search[0].nome, codigo_sistema: search[0].codigo_sistema, id: search[0].id
+    })
+  }, [edit.codigo_barras])
+
   const runDB = async () => {
-    const produtos = AppStorage.listarProdutos()
-    const contagens = AppStorage.listarContagens()
+    setProdutos(await AppStorage.listarProdutos())
+    setContagens(await AppStorage.listarContagens())
   }
 
   useEffect(() => { runDB() }, [])
@@ -99,6 +158,7 @@ export default function App() {
           <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 40, paddingHorizontal: 20 }}>{scan ? '-' : '+'}</Text>
         </TouchableOpacity>
       </View>
+      {!scan && renderListas()}
       {edit.modal && renderModalEdicao()}
     </View>
   )
